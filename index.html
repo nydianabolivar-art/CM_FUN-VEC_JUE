@@ -1,0 +1,989 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Misión Dron ∂ · Funciones Vectoriales — UCompensar</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Public+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --cielo:#EAF4FB;
+  --panel:#FFFFFF;
+  --tinta:#16324F;
+  --azul:#1E6FD9;
+  --azul-osc:#134B96;
+  --naranja:#F2892E;
+  --verde:#2FA26E;
+  --rojo:#E14D4D;
+  --gris:#7C93A8;
+  --borde:#D5E4F0;
+  --sombra:0 8px 24px rgba(22,50,79,.12);
+  --f-display:'Chakra Petch',sans-serif;
+  --f-body:'Public Sans',sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden;font-family:var(--f-body);color:var(--tinta);background:var(--cielo)}
+#escena{position:fixed;inset:0}
+canvas{display:block}
+
+/* ===== HUD superior ===== */
+#hud{position:fixed;top:0;left:0;right:0;display:flex;justify-content:space-between;align-items:flex-start;padding:14px 18px;pointer-events:none;z-index:20}
+.hud-grupo{display:flex;gap:10px;flex-wrap:wrap}
+.hud-chip{background:rgba(255,255,255,.92);border:1px solid var(--borde);border-radius:12px;padding:8px 14px;box-shadow:var(--sombra);backdrop-filter:blur(6px);min-width:96px}
+.hud-chip .etq{font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;color:var(--gris);font-family:var(--f-display)}
+.hud-chip .val{font-family:var(--f-display);font-weight:700;font-size:1.15rem;line-height:1.2}
+#chip-tiempo .val{color:var(--azul)}
+#chip-tiempo.alerta .val{color:var(--rojo);animation:parpadeo 1s steps(2) infinite}
+@keyframes parpadeo{50%{opacity:.35}}
+#chip-fotos .val{color:var(--verde)}
+#chip-caidas .val{color:var(--naranja)}
+
+/* ===== Controles de audio ===== */
+#audio-ctrl{position:fixed;bottom:14px;right:16px;display:flex;gap:8px;z-index:20}
+.btn-audio{pointer-events:auto;background:rgba(255,255,255,.92);border:1px solid var(--borde);border-radius:12px;padding:9px 14px;font-family:var(--f-display);font-weight:600;font-size:.78rem;color:var(--tinta);cursor:pointer;box-shadow:var(--sombra);transition:all .15s}
+.btn-audio:hover{border-color:var(--azul);color:var(--azul)}
+.btn-audio.activo{background:var(--azul);color:#fff;border-color:var(--azul)}
+
+/* ===== Galería de fotos ===== */
+#galeria{position:fixed;left:16px;bottom:14px;display:flex;gap:8px;z-index:20;flex-wrap:wrap;max-width:60vw}
+.foto{width:76px;height:52px;border-radius:8px;border:2px solid var(--panel);box-shadow:var(--sombra);background:#cfe0ee;object-fit:cover;animation:aparecer .4s ease}
+.foto.pendiente{display:flex;align-items:center;justify-content:center;font-family:var(--f-display);font-size:.7rem;color:var(--gris);border:2px dashed var(--borde);background:rgba(255,255,255,.55)}
+@keyframes aparecer{from{transform:scale(.4);opacity:0}to{transform:scale(1);opacity:1}}
+
+/* ===== Flash de cámara ===== */
+#flash{position:fixed;inset:0;background:#fff;opacity:0;pointer-events:none;z-index:40;transition:opacity .12s}
+
+/* ===== Overlays (inicio, pregunta, choque, fin) ===== */
+.overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:18px;z-index:30;background:rgba(22,50,79,.35);backdrop-filter:blur(4px)}
+.oculto{display:none!important}
+.tarjeta{background:var(--panel);border-radius:20px;box-shadow:0 24px 60px rgba(22,50,79,.25);max-width:640px;width:100%;padding:32px 34px;max-height:92vh;overflow-y:auto}
+.tarjeta h1{font-family:var(--f-display);font-size:1.7rem;line-height:1.15;color:var(--azul-osc)}
+.tarjeta h2{font-family:var(--f-display);font-size:1.25rem;color:var(--azul-osc);margin-bottom:6px}
+.eyebrow{font-family:var(--f-display);font-size:.68rem;letter-spacing:.18em;text-transform:uppercase;color:var(--naranja);font-weight:700;margin-bottom:8px}
+.tarjeta p{font-size:.94rem;line-height:1.55;margin:10px 0;color:#2c4a68}
+.mate{font-family:'Cambria Math','STIX Two Math',serif;background:#F2F8FD;border:1px solid var(--borde);border-radius:10px;padding:12px 16px;font-size:1.05rem;margin:14px 0;text-align:center}
+.btn{font-family:var(--f-display);font-weight:700;font-size:.95rem;border:none;border-radius:12px;padding:13px 26px;cursor:pointer;transition:transform .12s, box-shadow .12s}
+.btn:active{transform:scale(.97)}
+.btn-primario{background:var(--azul);color:#fff;box-shadow:0 6px 16px rgba(30,111,217,.35)}
+.btn-primario:hover{background:var(--azul-osc)}
+.btn-fantasma{background:#fff;color:var(--azul);border:2px solid var(--azul)}
+.opciones{display:grid;gap:10px;margin-top:16px}
+.opcion{text-align:left;background:#F5FAFE;border:2px solid var(--borde);border-radius:12px;padding:13px 16px;font-family:var(--f-body);font-size:.92rem;font-weight:600;color:var(--tinta);cursor:pointer;transition:all .15s;display:flex;gap:10px;align-items:flex-start}
+.opcion:hover{border-color:var(--azul);background:#EBF4FC;transform:translateX(4px)}
+.opcion .letra{font-family:var(--f-display);font-weight:700;color:var(--azul);flex-shrink:0}
+.opcion.correcta{border-color:var(--verde);background:#E9F7F0}
+.opcion.incorrecta{border-color:var(--rojo);background:#FCEBEB;animation:sacudir .35s}
+@keyframes sacudir{25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+.explicacion{background:#E9F7F0;border-left:4px solid var(--verde);border-radius:0 10px 10px 0;padding:12px 15px;font-size:.88rem;margin-top:14px;line-height:1.5}
+.progreso-q{font-family:var(--f-display);font-size:.75rem;color:var(--gris);letter-spacing:.1em}
+.regla{border:none;border-top:1px solid var(--borde);margin:18px 0}
+.stats-fin{display:flex;gap:14px;margin:18px 0;flex-wrap:wrap}
+.stat{flex:1;min-width:120px;background:#F2F8FD;border-radius:14px;padding:14px;text-align:center}
+.stat .num{font-family:var(--f-display);font-weight:700;font-size:1.6rem;color:var(--azul)}
+.stat .des{font-size:.72rem;text-transform:uppercase;letter-spacing:.1em;color:var(--gris)}
+.mini-galeria{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.mini-galeria img{width:88px;height:58px;border-radius:8px;object-fit:cover;border:2px solid var(--borde)}
+.lista-mision{margin:12px 0 4px 0;padding-left:0;list-style:none}
+.lista-mision li{display:flex;gap:10px;align-items:flex-start;font-size:.9rem;line-height:1.5;margin:8px 0;color:#2c4a68}
+.lista-mision .ic{font-family:var(--f-display);font-weight:700;color:var(--naranja);flex-shrink:0}
+#crash-msg .tarjeta{border-top:6px solid var(--rojo)}
+#exito .tarjeta{border-top:6px solid var(--verde)}
+.aviso-audio{font-size:.75rem;color:var(--gris);margin-top:12px;line-height:1.4}
+
+/* ===== Aviso al llegar al waypoint ===== */
+#aviso-punto{position:fixed;top:84px;left:50%;transform:translateX(-50%);background:var(--naranja);color:#fff;font-family:var(--f-display);font-weight:700;padding:10px 22px;border-radius:999px;box-shadow:var(--sombra);z-index:25;font-size:.9rem;opacity:0;transition:opacity .3s;pointer-events:none}
+
+/* ===== Footer ===== */
+#footer{position:fixed;bottom:2px;left:0;right:0;text-align:center;font-size:.62rem;color:var(--gris);z-index:15;pointer-events:none;font-family:var(--f-display);letter-spacing:.08em}
+
+@media(max-width:640px){
+  .tarjeta{padding:22px 20px}
+  .hud-chip{min-width:78px;padding:6px 10px}
+  .hud-chip .val{font-size:.95rem}
+  #galeria{max-width:92vw;bottom:56px}
+  .foto,.foto.pendiente{width:56px;height:38px}
+}
+</style>
+</head>
+<body>
+
+<div id="escena"></div>
+<div id="flash"></div>
+
+<!-- HUD -->
+<div id="hud">
+  <div class="hud-grupo">
+    <div class="hud-chip" id="chip-tiempo"><div class="etq">Batería / Tiempo</div><div class="val" id="tiempo">25:00</div></div>
+    <div class="hud-chip" id="chip-fotos"><div class="etq">Fotografías</div><div class="val" id="fotos">0 / 8</div></div>
+    <div class="hud-chip" id="chip-caidas"><div class="etq">Caídas</div><div class="val" id="caidas">0</div></div>
+  </div>
+  <div class="hud-grupo">
+    <div class="hud-chip"><div class="etq">Altitud r(t)·k̂</div><div class="val" id="altitud">0.0 m</div></div>
+  </div>
+</div>
+
+<div id="aviso-punto">📡 Punto de captura alcanzado</div>
+<div id="galeria"></div>
+
+<div id="audio-ctrl">
+  <button class="btn-audio" id="btn-musica">♪ Música OFF</button>
+  <button class="btn-audio" id="btn-binaural">🎧 Beta OFF</button>
+</div>
+
+<div id="footer">Astrid Bolívar · Ciencias Básicas UCompensar</div>
+
+<!-- Pantalla de inicio -->
+<div class="overlay" id="inicio">
+  <div class="tarjeta">
+    <div class="eyebrow">Misión de reconocimiento aéreo</div>
+    <h1>Dron ∂ · Operación Torre de Telecomunicaciones</h1>
+    <p>Eres el piloto del dron <b>∂-UCompensar</b>. Tu misión: capturar las <b>8 fotografías de inspección</b> de la torre de telecomunicaciones siguiendo una trayectoria helicoidal de ascenso.</p>
+    <div class="mate">La trayectoria del dron <b>es</b> una función vectorial:&nbsp; r(t) = ⟨x(t), y(t), z(t)⟩</div>
+    <ul class="lista-mision">
+      <li><span class="ic">▸</span><span><b>Dominio:</b> el intervalo de tiempo en que el vuelo es válido. Fuera del dominio, el dron pierde el enlace.</span></li>
+      <li><span class="ic">▸</span><span><b>Rango:</b> la curva que el dron dibuja en el espacio 3D.</span></li>
+      <li><span class="ic">▸</span><span><b>Límites:</b> la aproximación del dron a cada punto de captura.</span></li>
+    </ul>
+    <hr class="regla">
+    <ul class="lista-mision">
+      <li><span class="ic">⏱</span><span>Tienes <b>25 minutos de batería</b>. El cronómetro no se detiene, ni siquiera si el dron se estrella.</span></li>
+      <li><span class="ic">⚠</span><span>Cada respuesta incorrecta interrumpe la señal de control: <b>el dron cae y la misión reinicia desde la foto 1</b>.</span></li>
+      <li><span class="ic">📷</span><span>Cada respuesta correcta captura una fotografía real de la escena 3D.</span></li>
+    </ul>
+    <p style="margin-top:18px"><button class="btn btn-primario" id="btn-iniciar">🚁 Despegar e iniciar misión</button></p>
+    <p class="aviso-audio">♪ Activa la música electrónica de concentración (esquina inferior derecha). La capa «Beta» genera tonos binaurales de 16 Hz — <b>requiere audífonos</b> y es opcional.</p>
+  </div>
+</div>
+
+<!-- Pregunta -->
+<div class="overlay oculto" id="pregunta">
+  <div class="tarjeta">
+    <div class="progreso-q" id="q-progreso">PUNTO DE CAPTURA 1 / 8</div>
+    <h2 id="q-titulo"></h2>
+    <div class="mate" id="q-mate"></div>
+    <div class="opciones" id="q-opciones"></div>
+    <div class="explicacion oculto" id="q-explicacion"></div>
+    <p class="oculto" id="q-continuar" style="text-align:right;margin-top:14px"><button class="btn btn-primario" id="btn-continuar">📷 Capturar y continuar</button></p>
+  </div>
+</div>
+
+<!-- Choque -->
+<div class="overlay oculto" id="crash-msg">
+  <div class="tarjeta">
+    <div class="eyebrow" style="color:var(--rojo)">⚠ Pérdida de enlace</div>
+    <h2>El dron se ha estrellado</h2>
+    <p id="crash-detalle"></p>
+    <p>El dron regresa a la plataforma de despegue. Las fotografías capturadas se perdieron: la misión reinicia desde el <b>punto 1</b>. El cronómetro sigue corriendo.</p>
+    <p style="margin-top:16px"><button class="btn btn-primario" id="btn-reintentar">🔁 Reiniciar vuelo</button></p>
+  </div>
+</div>
+
+<!-- Éxito -->
+<div class="overlay oculto" id="exito">
+  <div class="tarjeta">
+    <div class="eyebrow" style="color:var(--verde)">✔ Misión cumplida</div>
+    <h1>Inspección completa de la torre</h1>
+    <p>Capturaste las 8 fotografías sin agotar la batería. Dominaste el <b>dominio, rango y límites de funciones vectoriales</b>: la trayectoria r(t) fue recorrida en todo su dominio y el dron alcanzó cada límite de aproximación.</p>
+    <div class="stats-fin">
+      <div class="stat"><div class="num" id="fin-tiempo">—</div><div class="des">Tiempo usado</div></div>
+      <div class="stat"><div class="num" id="fin-caidas">—</div><div class="des">Caídas</div></div>
+      <div class="stat"><div class="num">8/8</div><div class="des">Fotografías</div></div>
+    </div>
+    <div class="mini-galeria" id="fin-galeria"></div>
+    <p style="margin-top:18px"><button class="btn btn-fantasma" id="btn-nueva">🚁 Nueva misión</button></p>
+  </div>
+</div>
+
+<!-- Tiempo agotado -->
+<div class="overlay oculto" id="fracaso">
+  <div class="tarjeta" style="border-top:6px solid var(--rojo)">
+    <div class="eyebrow" style="color:var(--rojo)">✖ Batería agotada</div>
+    <h2>Se acabaron los 25 minutos</h2>
+    <p id="fracaso-detalle"></p>
+    <p>Repasa las restricciones de dominio (raíces pares, logaritmos, denominadores) y el cálculo de límites componente a componente antes de volver a despegar.</p>
+    <p style="margin-top:16px"><button class="btn btn-primario" id="btn-todo-nuevo">🔋 Recargar batería y reintentar</button></p>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script id="juego">
+/* ================================================================
+   MISIÓN DRON ∂ — Funciones vectoriales: dominio, rango y límites
+   Astrid Bolívar · Ciencias Básicas UCompensar
+   ================================================================ */
+
+/* ---------- Banco de preguntas (orden pedagógico creciente) ---------- */
+const PREGUNTAS = [
+  {
+    titulo: "Concepto de dominio",
+    mate: "r(t) = ⟨ f(t), g(t), h(t) ⟩",
+    q: "El plan de vuelo del dron es la función vectorial r(t). ¿Cómo se determina su dominio?",
+    opciones: [
+      { t: "La intersección de los dominios de todas sus componentes.", ok: true },
+      { t: "La unión de los dominios de todas sus componentes.", ok: false },
+      { t: "El dominio de la primera componente únicamente.", ok: false },
+      { t: "Siempre son todos los números reales.", ok: false }
+    ],
+    exp: "El dron solo puede volar cuando LAS TRES coordenadas existen simultáneamente. Por eso el dominio de r(t) es la intersección Dom(f) ∩ Dom(g) ∩ Dom(h)."
+  },
+  {
+    titulo: "Dominio con raíz y logaritmo",
+    mate: "r(t) = ⟨ √(t − 1),  ln(6 − t) ⟩",
+    q: "¿En qué intervalo de tiempo t el enlace del dron es válido (dominio de r)?",
+    opciones: [
+      { t: "[1, 6)", ok: true },
+      { t: "(1, 6)", ok: false },
+      { t: "[1, 6]", ok: false },
+      { t: "(−∞, 6)", ok: false }
+    ],
+    exp: "√(t−1) exige t ≥ 1 (la raíz par admite el cero) y ln(6−t) exige 6−t > 0, es decir t < 6 (el logaritmo NO admite el cero). Intersección: [1, 6)."
+  },
+  {
+    titulo: "Dominio con tres restricciones",
+    mate: "r(t) = ⟨ ln t,  1/(t − 4),  √t ⟩",
+    q: "El sistema de navegación combina tres señales. ¿Cuál es el dominio de r(t)?",
+    opciones: [
+      { t: "(0, 4) ∪ (4, ∞)", ok: true },
+      { t: "[0, 4) ∪ (4, ∞)", ok: false },
+      { t: "(0, ∞)", ok: false },
+      { t: "[0, ∞)", ok: false }
+    ],
+    exp: "ln t exige t > 0 (más restrictivo que √t, que pide t ≥ 0) y el denominador exige t ≠ 4. Intersección: (0, 4) ∪ (4, ∞)."
+  },
+  {
+    titulo: "Rango: la curva en el espacio",
+    mate: "r(t) = ⟨ cos t,  sen t,  t ⟩,   t ≥ 0",
+    q: "Esta es justamente la trayectoria helicoidal del dron alrededor de la torre. ¿Cuál es su rango (la curva que dibuja)?",
+    opciones: [
+      { t: "Una hélice sobre el cilindro x² + y² = 1.", ok: true },
+      { t: "Una circunferencia en el plano xy.", ok: false },
+      { t: "Una recta que asciende en dirección del eje z.", ok: false },
+      { t: "Una parábola en el plano xz.", ok: false }
+    ],
+    exp: "Como x² + y² = cos²t + sen²t = 1, la curva vive sobre un cilindro de radio 1, y z = t la hace ascender: una hélice. Exactamente lo que hace el dron alrededor de la torre."
+  },
+  {
+    titulo: "Rango en el plano",
+    mate: "r(t) = ⟨ 4 cos t,  4 sen t ⟩,   t ∈ [0, 2π]",
+    q: "El dron sobrevuela la base de la torre con este plan. ¿Cuál es el rango de r(t)?",
+    opciones: [
+      { t: "La circunferencia de radio 4 centrada en el origen.", ok: true },
+      { t: "El disco (círculo relleno) de radio 4.", ok: false },
+      { t: "Una elipse de semiejes 4 y 2.", ok: false },
+      { t: "La circunferencia de radio 16 centrada en el origen.", ok: false }
+    ],
+    exp: "x² + y² = 16 cos²t + 16 sen²t = 16 = 4². El rango es SOLO la curva frontera (la circunferencia de radio 4), no el disco: el dron recorre el borde, no barre el interior."
+  },
+  {
+    titulo: "Límite componente a componente",
+    mate: "lim(t→0)  ⟨ sen(t)/t,   e^t,   t² + 3 ⟩",
+    q: "El dron se aproxima al punto de captura cuando t → 0. ¿Cuál es el límite de su posición?",
+    opciones: [
+      { t: "⟨ 1, 1, 3 ⟩", ok: true },
+      { t: "⟨ 0, 1, 3 ⟩", ok: false },
+      { t: "⟨ 1, 0, 3 ⟩", ok: false },
+      { t: "El límite no existe porque sen(t)/t no está definido en t = 0.", ok: false }
+    ],
+    exp: "El límite se calcula componente a componente: lim sen(t)/t = 1 (límite notable), lim e^t = e⁰ = 1, lim (t²+3) = 3. Que la función no esté definida EN el punto no impide que el límite exista."
+  },
+  {
+    titulo: "Límite con forma indeterminada",
+    mate: "lim(t→2)  ⟨ (t² − 4)/(t − 2),   5t ⟩",
+    q: "La primera componente produce 0/0 al sustituir. ¿Cuál es el límite del vector posición?",
+    opciones: [
+      { t: "⟨ 4, 10 ⟩", ok: true },
+      { t: "No existe: la división 0/0 hace imposible el límite.", ok: false },
+      { t: "⟨ 0, 10 ⟩", ok: false },
+      { t: "⟨ 2, 10 ⟩", ok: false }
+    ],
+    exp: "0/0 es una forma indeterminada, no una sentencia: factorizando, (t²−4)/(t−2) = (t−2)(t+2)/(t−2) = t+2 → 4. Y 5t → 10. Límite: ⟨4, 10⟩."
+  },
+  {
+    titulo: "Existencia del límite vectorial",
+    mate: "lim(t→a) r(t) = L",
+    q: "Última captura, piloto. El límite de una función vectorial r(t) cuando t → a existe si y solo si…",
+    opciones: [
+      { t: "Existen los límites de TODAS sus funciones componentes.", ok: true },
+      { t: "Existe el límite de al menos una de sus componentes.", ok: false },
+      { t: "La función r está definida en t = a.", ok: false },
+      { t: "El valor t = a pertenece al dominio de r.", ok: false }
+    ],
+    exp: "Basta que UNA componente no tenga límite para que el vector no lo tenga. Y ojo: el límite puede existir aunque a no esté en el dominio (como viste con sen(t)/t)."
+  }
+];
+
+/* ================== ESTADO GLOBAL ================== */
+const TIEMPO_TOTAL = 25 * 60; // 25 minutos en segundos
+let segundosRestantes = TIEMPO_TOTAL;
+let cronometro = null;
+let estado = "inicio";     // inicio | volando | pregunta | choque | fin | fracaso
+let wpActual = 0;          // índice del waypoint objetivo (0..7)
+let fotosCapturadas = [];  // dataURLs
+let caidas = 0;
+let mejorAvance = 0;
+
+/* ================== ESCENA 3D ================== */
+const contenedor = document.getElementById("escena");
+const escena = new THREE.Scene();
+escena.background = new THREE.Color(0xEAF4FB);
+escena.fog = new THREE.Fog(0xEAF4FB, 90, 220);
+
+const camara = new THREE.PerspectiveCamera(55, innerWidth / innerHeight, 0.1, 500);
+camara.position.set(30, 18, 30);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+renderer.setSize(innerWidth, innerHeight);
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+contenedor.appendChild(renderer.domElement);
+
+addEventListener("resize", () => {
+  camara.aspect = innerWidth / innerHeight;
+  camara.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+
+/* --- Luces (día claro) --- */
+escena.add(new THREE.HemisphereLight(0xFFFFFF, 0xBBD4E8, 0.85));
+const sol = new THREE.DirectionalLight(0xFFF4E0, 0.9);
+sol.position.set(40, 60, 25);
+sol.castShadow = true;
+sol.shadow.mapSize.set(2048, 2048);
+sol.shadow.camera.left = -60; sol.shadow.camera.right = 60;
+sol.shadow.camera.top = 60;  sol.shadow.camera.bottom = -60;
+escena.add(sol);
+
+/* --- Terreno --- */
+const suelo = new THREE.Mesh(
+  new THREE.CircleGeometry(140, 48),
+  new THREE.MeshLambertMaterial({ color: 0xCBE3C6 })
+);
+suelo.rotation.x = -Math.PI / 2;
+suelo.receiveShadow = true;
+escena.add(suelo);
+
+const rejilla = new THREE.GridHelper(120, 30, 0xA9C8E0, 0xD9E8F4);
+rejilla.position.y = 0.02;
+escena.add(rejilla);
+
+/* --- Plataforma de despegue --- */
+const plataforma = new THREE.Mesh(
+  new THREE.CylinderGeometry(3.2, 3.2, 0.3, 32),
+  new THREE.MeshLambertMaterial({ color: 0xFFFFFF })
+);
+plataforma.position.set(22, 0.15, 0);
+plataforma.receiveShadow = true;
+escena.add(plataforma);
+const marcaH = new THREE.Mesh(
+  new THREE.RingGeometry(1.6, 2.4, 32),
+  new THREE.MeshBasicMaterial({ color: 0xF2892E, side: THREE.DoubleSide })
+);
+marcaH.rotation.x = -Math.PI / 2;
+marcaH.position.set(22, 0.32, 0);
+escena.add(marcaH);
+
+/* --- Edificios de contexto (campus) --- */
+function edificio(x, z, w, h, d, color) {
+  const m = new THREE.Mesh(
+    new THREE.BoxGeometry(w, h, d),
+    new THREE.MeshLambertMaterial({ color })
+  );
+  m.position.set(x, h / 2, z);
+  m.castShadow = true; m.receiveShadow = true;
+  escena.add(m);
+}
+edificio(-30, 25, 10, 8, 14, 0xE8EFF6);
+edificio(-38, -18, 12, 12, 10, 0xDDE9F3);
+edificio(30, -28, 14, 6, 10, 0xEDF3F8);
+edificio(-12, 38, 8, 10, 8, 0xE3EDF6);
+
+/* --- Árboles simples --- */
+function arbol(x, z) {
+  const g = new THREE.Group();
+  const tronco = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.25, 0.35, 1.6, 8),
+    new THREE.MeshLambertMaterial({ color: 0x8B6B4A })
+  );
+  tronco.position.y = 0.8;
+  const copa = new THREE.Mesh(
+    new THREE.SphereGeometry(1.5, 10, 10),
+    new THREE.MeshLambertMaterial({ color: 0x6FBF73 })
+  );
+  copa.position.y = 2.4;
+  copa.castShadow = true;
+  g.add(tronco, copa);
+  g.position.set(x, 0, z);
+  escena.add(g);
+}
+[[12,18],[-18,8],[8,-22],[-25,-30],[35,12],[18,-38],[-40,5],[42,-8]].forEach(p => arbol(p[0], p[1]));
+
+/* --- Torre de telecomunicaciones (celosía) --- */
+const ALTURA_TORRE = 40;
+const torre = new THREE.Group();
+const matAcero = new THREE.MeshLambertMaterial({ color: 0xC7D3DE });
+const matRojo  = new THREE.MeshLambertMaterial({ color: 0xE14D4D });
+const matBlanco = new THREE.MeshLambertMaterial({ color: 0xFFFFFF });
+
+// 4 patas inclinadas
+for (let i = 0; i < 4; i++) {
+  const ang = (i * Math.PI) / 2 + Math.PI / 4;
+  const base = 3.4, tope = 0.9;
+  const pata = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, ALTURA_TORRE + 1, 8), matAcero);
+  const x0 = Math.cos(ang) * base, z0 = Math.sin(ang) * base;
+  const x1 = Math.cos(ang) * tope, z1 = Math.sin(ang) * tope;
+  pata.position.set((x0 + x1) / 2, ALTURA_TORRE / 2, (z0 + z1) / 2);
+  const dir = new THREE.Vector3(x1 - x0, ALTURA_TORRE, z1 - z0).normalize();
+  pata.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
+  pata.castShadow = true;
+  torre.add(pata);
+}
+// anillos horizontales de arriostramiento
+for (let h = 4; h < ALTURA_TORRE; h += 4) {
+  const f = 1 - h / (ALTURA_TORRE + 6);
+  const r = 0.9 + 2.5 * f;
+  const anillo = new THREE.Mesh(new THREE.TorusGeometry(r, 0.07, 6, 4), matAcero);
+  anillo.rotation.x = Math.PI / 2;
+  anillo.rotation.z = Math.PI / 4;
+  anillo.position.y = h;
+  torre.add(anillo);
+  // franjas de señalización roja/blanca cada 8 m
+  if (h % 8 === 0) {
+    const franja = new THREE.Mesh(
+      new THREE.CylinderGeometry(r * 0.55, r * 0.55, 1.4, 12),
+      (h / 8) % 2 === 0 ? matRojo : matBlanco
+    );
+    franja.position.y = h;
+    torre.add(franja);
+  }
+}
+// antenas parabólicas
+function parabolica(h, ang) {
+  const d = new THREE.Mesh(new THREE.CylinderGeometry(1.1, 1.1, 0.35, 20), matBlanco);
+  d.rotation.z = Math.PI / 2;
+  d.rotation.y = ang;
+  const f = 1 - h / (ALTURA_TORRE + 6);
+  const r = 1.2 + 2.5 * f;
+  d.position.set(Math.cos(ang) * r, h, Math.sin(ang) * r);
+  d.castShadow = true;
+  torre.add(d);
+}
+parabolica(18, 0.6); parabolica(24, 2.4); parabolica(30, 4.2); parabolica(34, 1.4);
+// mástil superior + baliza
+const mastil = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 6, 8), matRojo);
+mastil.position.y = ALTURA_TORRE + 3;
+torre.add(mastil);
+const baliza = new THREE.Mesh(
+  new THREE.SphereGeometry(0.45, 12, 12),
+  new THREE.MeshBasicMaterial({ color: 0xFF4444 })
+);
+baliza.position.y = ALTURA_TORRE + 6.2;
+torre.add(baliza);
+escena.add(torre);
+
+/* --- Waypoints: hélice de ascenso (¡el rango de r(t)!) --- */
+const WAYPOINTS = [];
+const anillosWP = [];
+for (let i = 0; i < 8; i++) {
+  const ang = i * 0.95 + 0.4;
+  const radio = 13.5 - i * 0.85;
+  const y = 6 + i * 4.3;
+  WAYPOINTS.push(new THREE.Vector3(Math.cos(ang) * radio, y, Math.sin(ang) * radio));
+}
+WAYPOINTS.forEach((p, i) => {
+  const anillo = new THREE.Mesh(
+    new THREE.TorusGeometry(1.5, 0.14, 10, 32),
+    new THREE.MeshBasicMaterial({ color: 0xF2892E, transparent: true, opacity: 0.9 })
+  );
+  anillo.position.copy(p);
+  anillo.lookAt(new THREE.Vector3(0, p.y, 0));
+  escena.add(anillo);
+  anillosWP.push(anillo);
+});
+// curva helicoidal punteada que une los waypoints (visualización del rango)
+(function trazarHelice() {
+  const curva = new THREE.CatmullRomCurve3(
+    [new THREE.Vector3(22, 1.2, 0)].concat(WAYPOINTS)
+  );
+  const puntos = curva.getPoints(180);
+  const geo = new THREE.BufferGeometry().setFromPoints(puntos);
+  const linea = new THREE.Line(
+    geo,
+    new THREE.LineDashedMaterial({ color: 0x1E6FD9, dashSize: 0.8, gapSize: 0.6, transparent: true, opacity: 0.55 })
+  );
+  linea.computeLineDistances();
+  escena.add(linea);
+})();
+
+/* --- Dron --- */
+const dron = new THREE.Group();
+const cuerpo = new THREE.Mesh(
+  new THREE.BoxGeometry(1.3, 0.4, 1.3),
+  new THREE.MeshLambertMaterial({ color: 0x1E6FD9 })
+);
+cuerpo.castShadow = true;
+dron.add(cuerpo);
+const camaraDron = new THREE.Mesh(
+  new THREE.SphereGeometry(0.28, 10, 10),
+  new THREE.MeshLambertMaterial({ color: 0x16324F })
+);
+camaraDron.position.set(0, -0.32, 0.45);
+dron.add(camaraDron);
+const rotores = [];
+[[-0.85, 0.85], [0.85, 0.85], [-0.85, -0.85], [0.85, -0.85]].forEach(([x, z]) => {
+  const brazo = new THREE.Mesh(
+    new THREE.BoxGeometry(Math.abs(x) * 1.4, 0.12, 0.12),
+    new THREE.MeshLambertMaterial({ color: 0x9FB8CE })
+  );
+  brazo.position.set(x / 2, 0.1, z / 2);
+  brazo.rotation.y = Math.atan2(z, x);
+  brazo.scale.x = Math.hypot(x, z) / Math.abs(x);
+  dron.add(brazo);
+  const rotor = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.55, 0.55, 0.05, 16),
+    new THREE.MeshLambertMaterial({ color: 0xF2892E, transparent: true, opacity: 0.75 })
+  );
+  rotor.position.set(x, 0.22, z);
+  dron.add(rotor);
+  rotores.push(rotor);
+});
+const POS_BASE = new THREE.Vector3(22, 1.2, 0);
+dron.position.copy(POS_BASE);
+escena.add(dron);
+
+/* sombra proyectada simple del dron */
+const sombraDron = new THREE.Mesh(
+  new THREE.CircleGeometry(0.9, 20),
+  new THREE.MeshBasicMaterial({ color: 0x16324F, transparent: true, opacity: 0.18 })
+);
+sombraDron.rotation.x = -Math.PI / 2;
+escena.add(sombraDron);
+
+/* --- Variables de vuelo / choque --- */
+let objetivo = null;
+let velCaida = 0;
+let girosCaida = new THREE.Vector3();
+let tCam = 0;
+
+/* ================== BUCLE DE ANIMACIÓN ================== */
+const reloj = new THREE.Clock();
+function animar() {
+  requestAnimationFrame(animar);
+  const dt = Math.min(reloj.getDelta(), 0.05);
+  const t = reloj.elapsedTime;
+
+  // rotores y baliza
+  rotores.forEach((r, i) => (r.rotation.y += dt * (18 + i)));
+  baliza.material.color.setHex(Math.sin(t * 4) > 0 ? 0xFF4444 : 0x881111);
+  anillosWP.forEach((a, i) => {
+    const activo = i === wpActual && (estado === "volando" || estado === "pregunta");
+    a.material.color.setHex(i < wpActual ? 0x2FA26E : activo ? 0xF2892E : 0xB9CBDB);
+    a.material.opacity = activo ? 0.75 + 0.25 * Math.sin(t * 5) : 0.85;
+    if (activo) a.rotation.z += dt * 1.5;
+  });
+
+  // estados del dron
+  if (estado === "volando" && objetivo) {
+    const dir = objetivo.clone().sub(dron.position);
+    const dist = dir.length();
+    if (dist < 0.35) {
+      dron.position.copy(objetivo);
+      llegadaWaypoint();
+    } else {
+      const paso = Math.min(dist, (4.5 + dist * 0.6) * dt);
+      dron.position.add(dir.normalize().multiplyScalar(paso));
+      dron.rotation.y = Math.atan2(dir.x, dir.z);
+      dron.rotation.z = THREE.MathUtils.lerp(dron.rotation.z, -0.18, 0.1);
+    }
+    dron.position.y += Math.sin(t * 6) * 0.015;
+  } else if (estado === "choque") {
+    velCaida += 22 * dt;
+    dron.position.y -= velCaida * dt;
+    dron.rotation.x += girosCaida.x * dt;
+    dron.rotation.y += girosCaida.y * dt;
+    dron.rotation.z += girosCaida.z * dt;
+    if (dron.position.y <= 0.5) {
+      dron.position.y = 0.5;
+      estado = "estrellado";
+      setTimeout(mostrarCrash, 700);
+    }
+  } else if (estado === "pregunta" || estado === "inicio" || estado === "fin") {
+    dron.position.y += Math.sin(t * 3) * 0.006;
+    dron.rotation.z = THREE.MathUtils.lerp(dron.rotation.z, 0, 0.08);
+  }
+
+  // sombra
+  sombraDron.position.set(dron.position.x, 0.05, dron.position.z);
+  const esc = Math.max(0.3, 1 - dron.position.y / 60);
+  sombraDron.scale.setScalar(esc);
+
+  // cámara de seguimiento cinematográfica
+  tCam += dt * 0.12;
+  let focoCam, posCam;
+  if (estado === "inicio") {
+    posCam = new THREE.Vector3(Math.cos(tCam) * 42, 20 + 6 * Math.sin(tCam * 0.7), Math.sin(tCam) * 42);
+    focoCam = new THREE.Vector3(0, 18, 0);
+  } else {
+    const angC = tCam * 0.6;
+    posCam = dron.position.clone().add(
+      new THREE.Vector3(Math.cos(angC) * 9, 4.5, Math.sin(angC) * 9)
+    );
+    focoCam = dron.position.clone().lerp(new THREE.Vector3(0, dron.position.y, 0), 0.25);
+  }
+  camara.position.lerp(posCam, 0.04);
+  camara.lookAt(focoCam);
+
+  // HUD altitud
+  document.getElementById("altitud").textContent = dron.position.y.toFixed(1) + " m";
+
+  renderer.render(escena, camara);
+}
+animar();
+
+/* ================== LÓGICA DEL JUEGO ================== */
+const $ = id => document.getElementById(id);
+
+function iniciarCronometro() {
+  if (cronometro) return;
+  cronometro = setInterval(() => {
+    segundosRestantes--;
+    const m = String(Math.floor(segundosRestantes / 60)).padStart(2, "0");
+    const s = String(segundosRestantes % 60).padStart(2, "0");
+    $("tiempo").textContent = m + ":" + s;
+    if (segundosRestantes <= 180) $("chip-tiempo").classList.add("alerta");
+    if (segundosRestantes <= 0) {
+      clearInterval(cronometro);
+      cronometro = null;
+      terminarPorTiempo();
+    }
+  }, 1000);
+}
+
+function actualizarGaleria() {
+  const g = $("galeria");
+  g.innerHTML = "";
+  for (let i = 0; i < 8; i++) {
+    if (i < fotosCapturadas.length) {
+      const img = document.createElement("img");
+      img.className = "foto";
+      img.src = fotosCapturadas[i];
+      img.alt = "Foto " + (i + 1);
+      g.appendChild(img);
+    } else {
+      const d = document.createElement("div");
+      d.className = "foto pendiente";
+      d.textContent = (i + 1);
+      g.appendChild(d);
+    }
+  }
+  $("fotos").textContent = fotosCapturadas.length + " / 8";
+}
+
+function volarA(indice) {
+  wpActual = indice;
+  objetivo = WAYPOINTS[indice].clone();
+  estado = "volando";
+}
+
+function llegadaWaypoint() {
+  estado = "pregunta";
+  const aviso = $("aviso-punto");
+  aviso.style.opacity = 1;
+  setTimeout(() => (aviso.style.opacity = 0), 1600);
+  setTimeout(() => mostrarPregunta(wpActual), 900);
+}
+
+function barajar(arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function mostrarPregunta(i) {
+  const P = PREGUNTAS[i];
+  $("q-progreso").textContent = "PUNTO DE CAPTURA " + (i + 1) + " / 8 · " + P.titulo.toUpperCase();
+  $("q-titulo").textContent = P.q;
+  $("q-mate").innerHTML = P.mate;
+  $("q-explicacion").classList.add("oculto");
+  $("q-continuar").classList.add("oculto");
+  const cont = $("q-opciones");
+  cont.innerHTML = "";
+  const letras = ["A", "B", "C", "D"];
+  barajar(P.opciones).forEach((op, k) => {
+    const b = document.createElement("button");
+    b.className = "opcion";
+    b.innerHTML = '<span class="letra">' + letras[k] + "</span><span>" + op.t + "</span>";
+    b.onclick = () => responder(b, op, P);
+    cont.appendChild(b);
+  });
+  $("pregunta").classList.remove("oculto");
+}
+
+function responder(boton, opcion, P) {
+  const botones = document.querySelectorAll("#q-opciones .opcion");
+  botones.forEach(b => (b.onclick = null));
+  if (opcion.ok) {
+    boton.classList.add("correcta");
+    const exp = $("q-explicacion");
+    exp.textContent = "✔ " + P.exp;
+    exp.classList.remove("oculto");
+    $("q-continuar").classList.remove("oculto");
+    sonidoAcierto();
+  } else {
+    boton.classList.add("incorrecta");
+    sonidoError();
+    setTimeout(() => {
+      $("pregunta").classList.add("oculto");
+      iniciarChoque(P);
+    }, 800);
+  }
+}
+
+function capturarFoto() {
+  // flash + captura real del canvas 3D
+  const flash = $("flash");
+  flash.style.opacity = 0.9;
+  setTimeout(() => (flash.style.opacity = 0), 150);
+  const mini = document.createElement("canvas");
+  mini.width = 200; mini.height = 130;
+  const ctx = mini.getContext("2d");
+  const src = renderer.domElement;
+  const ratio = Math.max(mini.width / src.width, mini.height / src.height);
+  const w = src.width * ratio, h = src.height * ratio;
+  ctx.drawImage(src, (mini.width - w) / 2, (mini.height - h) / 2, w, h);
+  fotosCapturadas.push(mini.toDataURL("image/jpeg", 0.8));
+  actualizarGaleria();
+}
+
+function continuarMision() {
+  $("pregunta").classList.add("oculto");
+  capturarFoto();
+  sonidoFoto();
+  mejorAvance = Math.max(mejorAvance, wpActual + 1);
+  if (wpActual + 1 >= 8) {
+    setTimeout(terminarConExito, 900);
+  } else {
+    setTimeout(() => volarA(wpActual + 1), 600);
+  }
+}
+
+function iniciarChoque(P) {
+  caidas++;
+  $("caidas").textContent = caidas;
+  estado = "choque";
+  velCaida = 2;
+  girosCaida.set((Math.random() - 0.5) * 6, (Math.random() - 0.5) * 6, (Math.random() - 0.5) * 6);
+  $("crash-detalle").innerHTML =
+    "Respuesta incorrecta en <b>" + P.titulo + "</b>. Revisa: <i>" + P.exp + "</i>";
+  sonidoCaida();
+}
+
+function mostrarCrash() {
+  $("crash-msg").classList.remove("oculto");
+}
+
+function reiniciarVuelo() {
+  $("crash-msg").classList.add("oculto");
+  fotosCapturadas = [];
+  actualizarGaleria();
+  dron.position.copy(POS_BASE);
+  dron.rotation.set(0, 0, 0);
+  velCaida = 0;
+  estado = "pregunta"; // pausa breve antes de volar
+  setTimeout(() => volarA(0), 800);
+}
+
+function terminarConExito() {
+  estado = "fin";
+  if (cronometro) { clearInterval(cronometro); cronometro = null; }
+  const usados = TIEMPO_TOTAL - segundosRestantes;
+  const m = Math.floor(usados / 60), s = usados % 60;
+  $("fin-tiempo").textContent = m + ":" + String(s).padStart(2, "0");
+  $("fin-caidas").textContent = caidas;
+  const fg = $("fin-galeria");
+  fg.innerHTML = "";
+  fotosCapturadas.forEach(src => {
+    const img = document.createElement("img");
+    img.src = src;
+    fg.appendChild(img);
+  });
+  sonidoVictoria();
+  $("exito").classList.remove("oculto");
+}
+
+function terminarPorTiempo() {
+  estado = "fracaso";
+  $("pregunta").classList.add("oculto");
+  $("crash-msg").classList.add("oculto");
+  $("fracaso-detalle").innerHTML =
+    "Tu mejor avance fue el punto <b>" + mejorAvance + " de 8</b>, con <b>" + caidas + "</b> caída(s).";
+  $("fracaso").classList.remove("oculto");
+}
+
+function reiniciarTodo() {
+  $("fracaso").classList.add("oculto");
+  $("exito").classList.add("oculto");
+  segundosRestantes = TIEMPO_TOTAL;
+  $("tiempo").textContent = "25:00";
+  $("chip-tiempo").classList.remove("alerta");
+  caidas = 0; mejorAvance = 0;
+  $("caidas").textContent = "0";
+  fotosCapturadas = [];
+  actualizarGaleria();
+  dron.position.copy(POS_BASE);
+  dron.rotation.set(0, 0, 0);
+  iniciarCronometro();
+  estado = "pregunta";
+  setTimeout(() => volarA(0), 800);
+}
+
+/* --- Botones --- */
+$("btn-iniciar").onclick = () => {
+  $("inicio").classList.add("oculto");
+  actualizarGaleria();
+  iniciarCronometro();
+  setTimeout(() => volarA(0), 600);
+};
+$("btn-continuar").onclick = continuarMision;
+$("btn-reintentar").onclick = reiniciarVuelo;
+$("btn-todo-nuevo").onclick = reiniciarTodo;
+$("btn-nueva").onclick = reiniciarTodo;
+
+actualizarGaleria();
+
+/* ================== AUDIO: música electrónica + capa binaural beta ================== */
+let audioCtx = null;
+let musicaOn = false, binauralOn = false;
+let nodosMusica = null, nodosBinaural = null;
+let secuenciador = null, paso = 0;
+
+function ctxAudio() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (audioCtx.state === "suspended") audioCtx.resume();
+  return audioCtx;
+}
+
+/* --- efectos de sonido cortos --- */
+function blip(freq, dur, tipo, gan, freqFin) {
+  try {
+    const ctx = ctxAudio();
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = tipo || "sine";
+    o.frequency.setValueAtTime(freq, ctx.currentTime);
+    if (freqFin) o.frequency.exponentialRampToValueAtTime(freqFin, ctx.currentTime + dur);
+    g.gain.setValueAtTime(gan || 0.12, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + dur);
+    o.connect(g).connect(ctx.destination);
+    o.start(); o.stop(ctx.currentTime + dur);
+  } catch (e) { /* audio no disponible */ }
+}
+function sonidoAcierto() { blip(660, 0.12, "sine", 0.14); setTimeout(() => blip(880, 0.18, "sine", 0.14), 110); }
+function sonidoError()   { blip(220, 0.3, "sawtooth", 0.12, 90); }
+function sonidoFoto()    { blip(1400, 0.06, "square", 0.08); }
+function sonidoCaida()   { blip(500, 1.1, "sawtooth", 0.14, 60); }
+function sonidoVictoria(){ [523, 659, 784, 1046].forEach((f, i) => setTimeout(() => blip(f, 0.25, "triangle", 0.14), i * 160)); }
+
+/* --- música electrónica generativa (126 BPM) --- */
+const ESCALA = [110, 130.81, 146.83, 164.81, 196, 220, 261.63, 293.66]; // La menor pentatónica ext.
+function iniciarMusica() {
+  const ctx = ctxAudio();
+  const master = ctx.createGain();
+  master.gain.value = 0.16;
+  master.connect(ctx.destination);
+
+  // pad de fondo: dos sierras desafinadas por filtro suave
+  const filtroPad = ctx.createBiquadFilter();
+  filtroPad.type = "lowpass"; filtroPad.frequency.value = 700; filtroPad.Q.value = 0.7;
+  const gPad = ctx.createGain(); gPad.gain.value = 0.05;
+  const pad1 = ctx.createOscillator(), pad2 = ctx.createOscillator();
+  pad1.type = "sawtooth"; pad2.type = "sawtooth";
+  pad1.frequency.value = 110; pad2.frequency.value = 110.7;
+  pad1.connect(filtroPad); pad2.connect(filtroPad);
+  filtroPad.connect(gPad).connect(master);
+  pad1.start(); pad2.start();
+
+  nodosMusica = { master, pad1, pad2 };
+
+  const bpm = 126, corchea = 60 / bpm / 2;
+  paso = 0;
+  secuenciador = setInterval(() => {
+    const t0 = ctx.currentTime;
+    // bombo en negras
+    if (paso % 2 === 0) {
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.type = "sine";
+      o.frequency.setValueAtTime(150, t0);
+      o.frequency.exponentialRampToValueAtTime(45, t0 + 0.12);
+      g.gain.setValueAtTime(0.5, t0);
+      g.gain.exponentialRampToValueAtTime(0.001, t0 + 0.14);
+      o.connect(g).connect(master); o.start(t0); o.stop(t0 + 0.15);
+    }
+    // hi-hat en contratiempos
+    if (paso % 2 === 1) {
+      const buf = ctx.createBuffer(1, 2205, ctx.sampleRate);
+      const d = buf.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / d.length, 2);
+      const src = ctx.createBufferSource(); src.buffer = buf;
+      const hp = ctx.createBiquadFilter(); hp.type = "highpass"; hp.frequency.value = 7000;
+      const g = ctx.createGain(); g.gain.value = 0.12;
+      src.connect(hp).connect(g).connect(master); src.start(t0);
+    }
+    // arpegio de bajo/lead
+    const nota = ESCALA[[0, 3, 5, 3, 7, 5, 3, 1][paso % 8]];
+    const o = ctx.createOscillator(), g = ctx.createGain(), f = ctx.createBiquadFilter();
+    o.type = "square"; o.frequency.value = nota * 2;
+    f.type = "lowpass"; f.frequency.value = 1200 + 600 * Math.sin(paso * 0.4);
+    g.gain.setValueAtTime(0.09, t0);
+    g.gain.exponentialRampToValueAtTime(0.001, t0 + corchea * 0.9);
+    o.connect(f).connect(g).connect(master);
+    o.start(t0); o.stop(t0 + corchea);
+    paso++;
+  }, corchea * 1000);
+}
+function detenerMusica() {
+  if (secuenciador) { clearInterval(secuenciador); secuenciador = null; }
+  if (nodosMusica) {
+    try { nodosMusica.pad1.stop(); nodosMusica.pad2.stop(); nodosMusica.master.disconnect(); } catch (e) {}
+    nodosMusica = null;
+  }
+}
+
+/* --- capa binaural beta: 220 Hz (izq) / 236 Hz (der) → batido de 16 Hz --- */
+function iniciarBinaural() {
+  const ctx = ctxAudio();
+  const g = ctx.createGain(); g.gain.value = 0.05; g.connect(ctx.destination);
+  const izq = ctx.createOscillator(), der = ctx.createOscillator();
+  const pIzq = ctx.createStereoPanner(), pDer = ctx.createStereoPanner();
+  izq.frequency.value = 220; der.frequency.value = 236;
+  pIzq.pan.value = -1; pDer.pan.value = 1;
+  izq.connect(pIzq).connect(g); der.connect(pDer).connect(g);
+  izq.start(); der.start();
+  nodosBinaural = { izq, der, g };
+}
+function detenerBinaural() {
+  if (nodosBinaural) {
+    try { nodosBinaural.izq.stop(); nodosBinaural.der.stop(); nodosBinaural.g.disconnect(); } catch (e) {}
+    nodosBinaural = null;
+  }
+}
+
+$("btn-musica").onclick = function () {
+  musicaOn = !musicaOn;
+  this.classList.toggle("activo", musicaOn);
+  this.textContent = musicaOn ? "♪ Música ON" : "♪ Música OFF";
+  musicaOn ? iniciarMusica() : detenerMusica();
+};
+$("btn-binaural").onclick = function () {
+  binauralOn = !binauralOn;
+  this.classList.toggle("activo", binauralOn);
+  this.textContent = binauralOn ? "🎧 Beta ON" : "🎧 Beta OFF";
+  binauralOn ? iniciarBinaural() : detenerBinaural();
+};
+
+</script>
+</body>
+</html>
